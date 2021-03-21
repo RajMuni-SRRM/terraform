@@ -1,0 +1,106 @@
+====================providers.tf===================
+provider "aws" {
+    access_key="Your IAM user access_key"
+    secret_key="Your IAM user secret_key"
+    region=var.REGION
+}
+
+
+======================Var.tf==========================
+
+variable REGION {
+        default = "us-west-1"
+}
+
+variable ZONE1 {
+        default = "us-west-1a"
+}
+
+variable ZONE1 {
+        default = "us-west-1c"
+}
+
+variable AMIS {
+        type = map
+        default = {
+                eu-west-2 = "ami-0a245a00f741d6301"
+        }
+}
+
+variable PRIV_KEY {
+        default = "dinokey"
+}
+
+variable PUB_KEY {
+        default = "dinokey.pub"
+}
+
+=============================VPC.tf=======================================
+#VPC Creation
+
+resource "aws_vpc" "SRRM-VPC" {
+        cidr_block       = "10.43.14.0/24"
+        instance_tenancy = "default"
+        enable_dns_support = "true" #gives you an internal domain name
+        enable_dns_hostnames = "true" #gives you an internal host name
+        tags = {
+                Name = "SRRM-VPC"
+        }
+}
+
+#Private subnet creation
+
+resource "aws_subnet" "SRRM-VPC-PRIV-SUB" {
+        vpc_id = aws_vpc.SRRM-VPC.id
+        cidr_block = "10.43.14.0/25"
+        map_public_ip_on_launch = "false" #it makes this a public subnet
+        availability_zone = "us-west-1a"
+        tags = {
+                Name = "SRRM-VPC-PRIV-SUB"
+        }
+}
+
+#Public subnet creation
+
+resource "aws_subnet" "SRRM-VPC-PUB-SUB" {
+    vpc_id = aws_vpc.SRRM-VPC.id
+    cidr_block = "10.43.14.128/25"
+    availability_zone = "us-west-1c"
+    tags = {
+        Name = "SRRM-VPC-PUB-SUB"
+    }
+}
+
+
+# Creation of Internet Gateway
+
+resource "aws_internet_gateway" "SRRM-IGW" {
+    vpc_id = aws_vpc.SRRM-VPC.id
+    tags = {
+        Name = "SRRM-IGW"
+    }
+}
+
+#Creation Route Table
+
+resource "aws_route_table" "SRRM-RT" {
+    vpc_id = aws_vpc.SRRM-VPC.id
+	route {
+        //associated subnet can reach everywhere
+        cidr_block = "0.0.0.0/0"
+        //CRT uses this IGW to reach internet
+        gateway_id = aws_internet_gateway.SRRM-IGW.id
+    }
+
+    tags = {
+        Name = "SRRM-RT"
+    }
+}
+
+#Associate Route table with subnet
+
+resource "aws_route_table_association" "SRRM-RT-SUB-ASSO" {
+    subnet_id = aws_subnet.SRRM-VPC-PUB-SUB.id
+    route_table_id = aws_route_table.SRRM-RT.id
+}
+
